@@ -110,7 +110,7 @@ The proposed research approach can be distilled into the following principal ste
 
 The illustration below shows the Inputs-Processes-Outputs of the proposed research methodology:
 <div align="center">
-  <img src="https://github.com/chirindaopensource/regime_gated_residual_mixture_of_experts_for_cross_sectional_volatility_forecasting/blob/main/regime_gated_residual_mixture_of_experts_for_cross_sectional_volatility_forecasting_ipo_main.png" alt="Pipeline Architecture" width="100%">
+  <img src="https://github.com/chirindaopensource/regime_gated_residual_mixture_of_experts_for_cross_sectional_volatility_forecasting/blob/main/regime_gated_residual_mixture_of_experts_for_cross_sectional_volatility_forecasting_ipo_main.jpg" alt="Pipeline Architecture" width="100%">
 </div>
 
 ## Core Components (Notebook Structure)
