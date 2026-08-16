@@ -1,0 +1,240 @@
+# ==============================================================================#
+#
+#  Regime-Gated Residual Mixture-of-Experts for Cross-Sectional Volatility Forecasting
+#
+#  Pinned runtime dependency manifest for the reference implementation of
+#  "Regime-Gated Residual Mixture-of-Experts for Cross-Sectional Volatility
+#  Forecasting" by Junyi Ye and Gargi Vijay Borde (2026). This manifest fixes the
+#  complete transitive dependency closure so that a 30-seed replication executed
+#  on any host reproduces the study's reported metrics bit-for-bit, and so that
+#  paired model comparisons remain statistically valid across retraining cycles.
+#
+#  Reproducibility Contract:
+#  • Every distribution in the closure is pinned with '==' (28 packages total)
+#  • No '>=' or '~=' operators: resolver drift would break paired-seed comparison
+#  • Import-name-to-distribution-name mappings resolved explicitly (sklearn ->
+#    scikit-learn) to prevent installation of deprecation-stub packages
+#  • Standard-library modules (re, hashlib, inspect, itertools, json, logging,
+#    math, random, sys, dataclasses, datetime, importlib.metadata, pathlib,
+#    typing, __future__) are deliberately absent: pinning them is a hazard
+#  • Optional acquisition dependencies are isolated so that the modelling and
+#    evaluation stack installs and runs in fully air-gapped environments
+#
+#  Verified Reference Environment:
+#  • CPython 3.14.4 (64-bit), Windows 11 Pro 10.0.26200
+#  • torch 2.13.0+cpu, MKL enabled, CUDA absent
+#  • 'pip check' clean; all 15 header API symbols resolved and smoke-tested
+#
+#  Installation:
+#      python -m pip install --require-virtualenv -r requirements.txt
+#      python -m pip install --require-virtualenv -r requirements.txt \
+#          --only-binary=:all:            # forbid source builds (recommended)
+#
+#  Paper Reference:
+#  Ye, J., & Borde, G. V. (2026). Regime-Gated Residual Mixture-of-Experts for
+#  Cross-Sectional Volatility Forecasting. arXiv preprint arXiv:2608.12251.
+#  https://arxiv.org/abs/2608.12251
+#
+#  Author: CS Chirinda
+#  License: MIT
+#  Version: 1.0.0
+#
+# ==============================================================================#
+
+
+# ------------------------------------------------------------------------------
+# SECTION A — INTERPRETER CONTRACT (informational; enforced in pyproject/setup.cfg)
+# ------------------------------------------------------------------------------
+# Requires-Python: >=3.11,<3.15
+#   Floor 3.11 : 'typing.Self', exception groups, and the tomllib/zero-cost
+#                exception model relied upon by the experiment driver.
+#   Ceiling 3.15: torch 2.13.0 publishes no cp315 wheels at time of pinning; a
+#                3.15 interpreter would silently fall through to a source build.
+# NOTE: 'from __future__ import annotations' in the module header defers all
+#       annotation evaluation, so the deep generic type hints used throughout
+#       (Dict[str, Tuple[np.ndarray, ...]]) impose no import-time cost.
+
+
+# ------------------------------------------------------------------------------
+# SECTION B — NUMERICAL CORE (direct imports)
+# ------------------------------------------------------------------------------
+
+# numpy — panel arrays, rolling-window kernels, RNG (default_rng) for the
+# 30-seed registry, and the dtype substrate for every torch tensor bridge.
+# HARD FLOOR AT 2.x: legacy aliases np.float_, np.NaN, np.int0 were removed in
+# NumPy 2.0. Reproduction code authored against 1.26 fails at import, not at
+# runtime — treat any AttributeError on these names as a wrong-pin diagnostic.
+numpy==2.4.6
+
+# scipy — supplies four distinct study-critical kernels:
+#   optimize.minimize -> per-stock GARCH(1,1) MLE under positivity/stationarity
+#   stats.spearmanr   -> daily cross-sectional information coefficient
+#   stats.t           -> Student-t residual fit for 5% / 1% VaR thresholds
+#   stats.chi2        -> chi-square(1) null for Kupiec unconditional coverage
+# Patch-level pin is mandatory: SciPy has altered spearmanr tie-handling and
+# t.fit optimizer defaults within minor series, which shifts IC and VaR results.
+scipy==1.18.0
+
+# pandas — panel alignment across ~1,500 US and 1,552 TSE Prime tickers on a
+# reconciled trading calendar; all rolling realized-volatility, beta, RSI, and
+# forward-target construction.
+# BREAKING-CHANGE ADVISORY (pandas 3.0): Copy-on-Write is permanently enabled
+# and can no longer be disabled; 'pd.options.mode.copy_on_write' now emits
+# Pandas4Warning. Chained assignment of the form df[col][mask] = value is a
+# SILENT NO-OP under CoW. Every rolling-feature write must use .loc/.iloc
+# single-step indexing or an explicit .assign(). This is a correctness hazard
+# for look-ahead auditing, not a style preference.
+pandas==3.0.3
+
+
+# ------------------------------------------------------------------------------
+# SECTION C — NEURAL BACKBONE (direct imports)
+# ------------------------------------------------------------------------------
+
+# torch / torch.nn / torch.nn.functional — the shared two-hidden-layer GELU
+# block, the frozen base network, the K residual experts with zero-initialised
+# final layers, the softmax soft gate over (x, z), full-batch Adam, and
+# deterministic seeding via torch.manual_seed / use_deterministic_algorithms.
+# The pin below resolves to the default PyPI wheel. On this reference host that
+# is the CPU build (2.13.0+cpu). For accelerated 30-seed sweeps, install the
+# matching accelerator wheel FIRST from the PyTorch index, then run this file:
+#
+#   CUDA 12.6:
+#     pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu126
+#   ROCm 6.4:
+#     pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/rocm6.4
+#   CPU-only (explicit, reproducible, no CUDA payload):
+#     pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+#
+# The accelerator index is deliberately NOT declared as an --extra-index-url
+# line here: a file-scoped extra index applies to EVERY requirement and widens
+# the dependency-confusion surface across all 28 packages.
+# DETERMINISM CAVEAT: identical seeds reproduce identical results within an
+# accelerator class, not across CPU and CUDA. Record the accelerator in the
+# experiment manifest alongside the seed registry.
+torch==2.13.0
+
+
+# ------------------------------------------------------------------------------
+# SECTION D — CLASSICAL ESTIMATION AND PLOTTING (direct imports)
+# ------------------------------------------------------------------------------
+
+# scikit-learn — sklearn.linear_model.Ridge for the pooled HAR baseline and the
+# regularised trailing-window regressions used in residual/beta construction.
+# DISTRIBUTION-NAME TRAP: the import name is 'sklearn' but the distribution is
+# 'scikit-learn'. Requiring 'sklearn' installs a deprecation-stub package that
+# raises on install and provides no code. Never write 'sklearn' in this file.
+scikit-learn==1.9.0
+
+# matplotlib — diagnostic figures: loss curves, routing-weight trajectories,
+# per-regime QLIKE decomposition, and the collapse-diagnostic plots keyed to the
+# prespecified mean-test-QLIKE > 2.0 threshold.
+# The module header calls matplotlib.use("Agg") BEFORE importing pyplot, which
+# selects the headless raster backend. Consequently NO GUI toolkit binding
+# (PyQt5/PyQt6/PySide/tkinter/wxPython) is required, and none is pinned. This
+# keeps the container image small and the batch runs display-free.
+matplotlib==3.11.1
+
+
+# ------------------------------------------------------------------------------
+# SECTION E — PINNED TRANSITIVE CLOSURE
+# ------------------------------------------------------------------------------
+# Resolved by breadth-first traversal of importlib.metadata requirement graphs
+# from the six direct roots, with extras-gated requirements excluded. Pinning
+# the closure — not merely the roots — is what makes seed s on host A identical
+# to seed s on host B. Regenerate with:
+#   pip install pipdeptree && pipdeptree --freeze --warn fail
+
+# -- pandas backing ------------------------------------------------------------
+python-dateutil==2.9.0.post0   # timestamp parsing for the reconciled calendar
+six==1.17.0                    # python-dateutil compatibility shim
+tzdata==2026.2                 # IANA zoneinfo for US/Eastern and Asia/Tokyo
+# NOTE: 'pytz' is intentionally ABSENT. pandas 3.0 dropped it as a hard
+# requirement in favour of stdlib zoneinfo. It reappears only via yfinance
+# (Section F) and must not be pinned in the core set.
+
+# -- scikit-learn backing ------------------------------------------------------
+joblib==1.5.3                  # parallel backend for cross-fitting
+threadpoolctl==3.6.0           # BLAS thread control; pin thread counts to 1
+                               # for byte-reproducible pooled loss aggregates
+narwhals==2.24.0               # dataframe-agnostic layer (new in sklearn 1.9)
+
+# -- matplotlib backing --------------------------------------------------------
+contourpy==1.3.3               # contouring for regime-surface diagnostics
+cycler==0.12.1                 # style cycling
+fonttools==4.63.0              # font subsetting for vector export
+kiwisolver==1.5.0              # constraint solver for layout
+packaging==26.2                # version parsing (also used by torch)
+pillow==12.2.0                 # raster encode/decode under the Agg backend
+pyparsing==3.3.2               # mathtext grammar
+
+# -- torch backing -------------------------------------------------------------
+filelock==3.29.0               # inductor/hub cache locking across parallel seeds
+fsspec==2026.4.0               # checkpoint I/O abstraction for fault tolerance
+jinja2==3.1.6                  # kernel-template rendering in torch.compile
+MarkupSafe==3.0.3              # jinja2 escaping primitive
+networkx==3.6.1                # FX graph manipulation
+sympy==1.14.0                  # symbolic shape reasoning in dynamo
+mpmath==1.3.0                  # sympy arbitrary-precision backend
+typing_extensions==4.15.0      # backported typing constructs in torch stubs
+setuptools==84.0.0             # REQUIRED by torch on Python >= 3.12, where
+                               # distutils was removed from the stdlib. Omitting
+                               # it produces an obscure import failure, not a
+                               # clean resolver error.
+
+
+# ------------------------------------------------------------------------------
+# SECTION F — OPTIONAL MARKET-DATA ACQUISITION
+# ------------------------------------------------------------------------------
+# The module header guards both imports with try/except ImportError and binds
+# the name to None on failure. That design is intentional: the modelling,
+# training, and evaluation stack must install and execute in air-gapped
+# environments from a cached, hash-verified panel. Install this section ONLY on
+# the ingestion host that materialises the raw panel.
+#
+#   python -m pip install "yfinance==1.6.0" "pandas-market-calendars==5.4.0"
+#
+# STATUS DISCLOSURE: neither distribution is installed in the verified reference
+# environment described in the header, so the two pins below are the current
+# PyPI releases rather than versions smoke-tested on this host. Validate them on
+# the ingestion host before promoting this section out of comments.
+#
+# yfinance — split- and dividend-adjusted daily closes for the US cross-section
+# and the TSE Prime panel. STABILITY WARNING: yfinance scrapes an undocumented
+# endpoint; it is the single least stable component in the graph and its output
+# schema has changed without notice across minor releases. Materialise the panel
+# once, hash it, and drive all 30 seeds from the cached artefact — never from a
+# live fetch inside the experiment loop.
+# yfinance==1.6.0
+#
+# pandas-market-calendars — NYSE and JPX session calendars for reconciling the
+# two holiday schedules and for aligning the 63-trading-day test windows to the
+# study's stated evaluation dates. Pulls 'exchange-calendars' plus 'pytz',
+# 'toolz', 'korean-lunar-calendar', and 'pyluach' transitively; those are left
+# to the resolver because they are unverified on this host.
+# pandas-market-calendars==5.4.0
+
+
+# ------------------------------------------------------------------------------
+# SECTION G — HASH-VERIFIED INSTALLATION (highest assurance tier)
+# ------------------------------------------------------------------------------
+# For audited replication, promote this manifest to a hash-locked lockfile.
+# '--require-hashes' rejects any artefact whose SHA-256 does not match, closing
+# the dependency-confusion and compromised-mirror attack surface:
+#
+#   python -m pip install pip-tools
+#   pip-compile --generate-hashes --output-file=requirements.lock requirements.txt
+#   python -m pip install --require-hashes -r requirements.lock
+#
+# '--require-hashes' is all-or-nothing: EVERY requirement in the file must carry
+# a hash, which is precisely why Section E pins the full closure rather than
+# only the six direct roots.
+#
+# Post-install verification gate (must exit 0 before any seed is launched):
+#
+#   python -m pip check
+#   python -c "import numpy,pandas,scipy,sklearn,matplotlib,torch; print('closure OK')"
+#
+# ==============================================================================#
+#                              END OF MANIFEST
+# ==============================================================================#
